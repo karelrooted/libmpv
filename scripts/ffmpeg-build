@@ -1,0 +1,56 @@
+#!/bin/sh -xe
+
+LDFLAGS="$LDFLAGS -lc++ "
+
+cd $SRC/$1 && git apply $ROOT/patch/ffmpeg/ffmpeg.patch || true
+cd -
+if [[ ! -z $DEBUG_SWITCH ]]; then
+    FFMPEG_OPTIONS="--enable-debug --disable-stripping --disable-optimizations"
+else
+	FFMPEG_OPTIONS="--disable-debug --enable-stripping --enable-optimizations"
+fi
+if [[ "$PLATFORM" = "maccatalyst" || "$ARCH" = "x86_64" ]]; then
+	FFMPEG_OPTIONS="$FFMPEG_OPTIONS --disable-neon --disable-asm"
+else
+	FFMPEG_OPTIONS="$FFMPEG_OPTIONS --enable-neon --enable-asm"
+fi
+if [[ "$PLATFORM" = "macos" && $(uname -m) == $ARCH ]]; then
+	FFMPEG_OPTIONS="$FFMPEG_OPTIONS  --enable-ffplay  \
+             --enable-sdl2  \
+             --enable-encoder=aac  \
+             --enable-encoder=movtext  \
+             --enable-encoder=mpeg4  \
+             --enable-decoder=rawvideo  \
+             --enable-filter=color  \
+             --enable-filter=lut  \
+             --enable-filter=negate  \
+             --enable-filter=testsrc  \
+			 --enable-pic --disable-indev=avfoundation \
+			 --disable-outdev=audiotoolbox --enable-avdevice"
+else
+	FFMPEG_OPTIONS="$FFMPEG_OPTIONS --enable-pic --disable-indev=avfoundation --disable-outdev=audiotoolbox --enable-avdevice --disable-programs"
+fi
+$SRC/$1/configure --prefix=$SCRATCH/$ARCH $FFMPEG_OPTIONS \
+		 --disable-armv5te --disable-armv6 --disable-armv6t2 --disable-bsfs \
+         --disable-bzlib --disable-gray --disable-iconv --disable-linux-perf \
+         --disable-xlib --disable-swscale-alpha --disable-symver --disable-small \
+         --enable-cross-compile --enable-gpl --enable-libxml2 --enable-nonfree \
+         --enable-runtime-cpudetect --enable-thumb --enable-version3 --pkg-config-flags=--static \
+         --enable-static --disable-shared \
+         --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
+         --enable-avcodec --enable-avformat --enable-avutil --enable-network --enable-swresample --enable-swscale \
+         --disable-devices --disable-outdevs --disable-indevs --disable-postproc \
+         --enable-protocols \
+         --disable-protocol=ffrtmpcrypt --disable-protocol=gopher --disable-protocol=icecast \
+         --disable-protocol=librtmp* --disable-protocol=libssh --disable-protocol=md5 --disable-protocol=mmsh \
+         --disable-protocol=mmst --disable-protocol=sctp --disable-protocol=subfile --disable-protocol=unix \
+		 --ignore-tests=TESTS \
+		 --disable-large-tests --enable-filter=subtitles \
+		 --enable-libbluray --enable-openssl --enable-libass --enable-libplacebo  --enable-libdav1d \
+		 --enable-libfribidi --enable-libfreetype --enable-libshaderc \
+         --target-os=darwin --arch=$ARCH
+         #--enable-libsmbclient \
+		 
+make -j5 -s
+make -j5 install -s
+cd $SRC/$1 && git stash && cd -

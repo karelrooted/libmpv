@@ -1,0 +1,25 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+if [[ "$PLATFORM" != "macos" ]]; then
+    git apply $ROOT/patch/libbluray/fix-no-dadisk.patch || true
+fi
+if [[ "$PLATFORM" == "tvos" || "$PLATFORM" == "tvsimulator" ]]; then
+    git apply $ROOT/patch/libbluray/no_fork_and_exec.patch || true
+fi
+./bootstrap
+if [[ "$PLATFORM" != "macos" && "$PLATFORM" != "maccatalyst" ]]; then
+    # sed -i is not working for some reason, so we use a temporary file instead, to investigate later
+    sed 's/-framework DiskArbitration//g' configure > tmp.txt && rm configure && mv tmp.txt configure && chmod +x configure
+fi
+cd -
+$SRC/$1/configure $COMMON_OPTIONS  \
+                --disable-fast-install \
+                --disable-bdjava-jar \
+                --disable-dependency-tracking \
+                --disable-silent-rules \
+				 --without-fontconfig
+
+make -j5 -s
+make -j5 install -s
+cd $SRC/$1 && git stash && cd -

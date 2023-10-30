@@ -1,0 +1,72 @@
+[submodule "Vendor/libass"]
+	path = Vendor/libass
+	url = https://github.com/libass/libass.git
+[submodule "Vendor/ffmpeg"]
+	path = Vendor/ffmpeg
+	url = https://github.com/ffmpeg/ffmpeg.git
+[submodule "Vendor/libplacebo"]
+	path = Vendor/libplacebo
+	url = https://code.videolan.org/videolan/libplacebo.git
+[submodule "Vendor/mpv"]
+	path = Vendor/mpv
+	url = https://github.com/mpv-player/mpv.git
+[submodule "Vendor/freetype"]
+	path = Vendor/freetype
+	url = https://github.com/freetype/freetype.git
+[submodule "Vendor/fribidi"]
+	path = Vendor/fribidi
+	url = https://github.com/fribidi/fribidi.git
+[submodule "Vendor/openssl"]
+	path = Vendor/openssl
+	url = https://github.com/openssl/openssl.git
+[submodule "Vendor/gnutls"]
+	path = Vendor/gnutls
+	url = https://github.com/gnutls/gnutls.git
+[submodule "Vendor/libpng"]
+	path = Vendor/libpng
+	url = https://github.com/glennrp/libpng.git
+[submodule "Vendor/srt"]
+	path = Vendor/srt
+	url = https://github.com/Haivision/srt.git
+[submodule "Vendor/nettle"]
+	path = Vendor/nettle
+	url = https://github.com/gnutls/nettle.git
+[submodule "Vendor/gmp"]
+	path = Vendor/gmp
+	url = https://github.com/alisw/GMP.git
+[submodule "Vendor/brotli"]
+	path = Vendor/brotli
+	url = https://github.com/google/brotli.git
+[submodule "Vendor/uchardet"]
+	path = Vendor/uchardet
+	url = https://gitlab.freedesktop.org/uchardet/uchardet.git
+[submodule "Vendor/harfbuzz"]
+	path = Vendor/harfbuzz
+	url = https://github.com//harfbuzz/harfbuzz.git
+[submodule "Vendor/littlecms"]
+	path = Vendor/littlecms
+	url = https://github.com/mm2/Little-CMS.git
+[submodule "Vendor/libbluray"]
+	path = Vendor/libbluray
+	url = https://code.videolan.org/videolan/libbluray.git
+[submodule "Vendor/shaderc"]
+	path = Vendor/shaderc
+	url = https://github.com/google/shaderc.git
+[submodule "Vendor/MoltenVK"]
+	path = Vendor/MoltenVK
+	url = https://github.com/KhronosGroup/MoltenVK
+[submodule "Vendor/libdav1d"]
+	path = Vendor/libdav1d
+	url = https://github.com/videolan/dav1d
+[submodule "Vendor/readline"]
+	path = Vendor/readline
+	url = https://git.savannah.gnu.org/git/readline.git
+[submodule "Vendor/libdovi"]
+	path = Vendor/libdovi
+	url = https://github.com/quietvoid/dovi_tool.git
+[submodule "Vendor/luajit"]
+	path = Vendor/luajit
+	url = https://github.com/LuaJIT/LuaJIT.git
+[submodule "Vendor/smbclient"]
+	path = Vendor/smbclient
+	url = https://gitlab.com/samba-team/samba.git

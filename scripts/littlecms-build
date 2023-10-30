@@ -1,0 +1,6 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+meson setup $BUILDDIR $MESON_COMMON_OPTIONS
+meson compile -C $BUILDDIR
+meson install -C $BUILDDIR

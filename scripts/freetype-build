@@ -1,0 +1,7 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+OPT="-Dbrotli=disabled"
+meson setup $BUILDDIR $OPT $MESON_COMMON_OPTIONS
+meson compile -C $BUILDDIR
+meson install -C $BUILDDIR

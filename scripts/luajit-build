@@ -1,0 +1,18 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+PREFIX=$SCRATCH/$ARCH
+MACOSX_DEPLOYMENT_TARGET=10.15 make clean
+if [[ "$PLATFORM" = "macos" ]]; then
+    if [[ "$ARCH" = "arm64" ]]; then
+        exit 0
+    fi
+    MACOSX_DEPLOYMENT_TARGET=10.15 make -j5 -s PREFIX=$PREFIX
+elif [[ "$PLATFORM" = "maccatalyst" ]]; then
+    exit 0
+else
+    TARGET_FLAGS="-arch $ARCH -isysroot $SDKPATH"
+    env -i make -j5 -s PREFIX=$PREFIX DEFAULT_CC=clang CROSS=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ TARGET_FLAGS="$TARGET_FLAGS" TARGET_SYS=iOS
+fi
+make -j5 install -s PREFIX=$PREFIX
+

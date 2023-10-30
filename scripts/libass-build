@@ -1,0 +1,14 @@
+#!/bin/sh -xe
+
+#export NOCONFIGURE=1
+cd $SRC/$1 && ./autogen.sh && cd -
+$SRC/$1/configure $COMMON_OPTIONS --disable-libtool-lock \
+				 --disable-test \
+                 --disable-profile \
+                 --disable-fontconfig \
+                 --disable-asm \
+                 --disable-libunibreak \
+                 --disable-fast-install
+
+make -j5 -s
+make -j5 install -s

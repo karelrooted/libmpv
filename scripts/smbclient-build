@@ -1,0 +1,66 @@
+#!/bin/sh -xe
+# all the samba patch is copy from xbmc project , all rights belong to xbmc, please check xbmc project for more information
+# https://github.com/xbmc/xbmc/blob/8d852242b8fed6fc99132c5428e1c703970f7201/tools/depends/target/samba-gplv3/Makefile
+
+# build errors with _yp_get_default_domain NIS failure
+CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration"
+# TODO build compiled_et and asn1_compile locally(change the xbmc patch to let samba compile it locally) 
+PATH="$ROOT/bin:$SRC/$1/buildtools/bin:$PATH"
+export PYTHONHASHSEED=1
+export WAF_MAKE=1
+#export DISTCC_HOSTS=
+PATH=$SRC/$1/buildtools/bin:$PATH
+
+cd $SRC/$1
+git apply $ROOT/patch/samba/01-fix-dependencies.patch || true
+git apply $ROOT/patch/samba/02-cross_compile.patch || true
+git apply $ROOT/patch/samba/03-builtin-heimdal.patch || true
+git apply $ROOT/patch/samba/04-built-static.patch || true
+git apply $ROOT/patch/samba/no_fork_and_exec.patch || true
+git apply $ROOT/patch/samba/crt_extensions.patch || true
+git apply $ROOT/patch/samba/05-apple-disable-zlib-pkgconfig.patch || true
+git apply $ROOT/patch/samba/06-apple-fix-st_atim.patch || true
+
+make clean || true
+make distclean || true
+if [[ "$PLATFORM" != "macos" || $(uname -m) != $ARCH ]]; then
+    cross_flag="--cross-compile --cross-answers=$ROOT/crossanswer.txt"
+fi
+./configure --prefix=$SCRATCH/$ARCH --host=$HOSTFLAG $cross_flag \
+                --without-cluster-support \
+                --disable-rpath \
+                --without-ldap \
+                --without-pam \
+                --enable-fhs \
+                --without-winbind \
+                --without-ads \
+                --disable-avahi \
+                --disable-cups \
+                --without-gettext \
+                --without-ad-dc \
+                --without-acl-support \
+                --without-utmp \
+                --disable-iprint \
+                --nopyc \
+                --nopyo \
+                --disable-python \
+                --disable-symbol-versions \
+                --without-json \
+                --without-libarchive \
+                --without-regedit \
+                --without-lttng \
+                --without-gpgme \
+                --disable-cephfs \
+                --disable-glusterfs \
+                --without-syslog \
+                --without-quotas \
+                --bundled-libraries=ALL \
+                --with-static-modules=!vfs_snapper,ALL \
+                --nonshared-binary=smbtorture,smbd/smbd,client/smbclient \
+                --builtin-libraries=!smbclient,!smbd_base,!smbstatus,ALL \
+                #--with-shared-modules=!vfs_snapper \
+
+
+./buildtools/bin/waf --targets=smbclient
+./buildtools/bin/waf install --targets=smbclient
+cp bin/default/source3/libsmb/libsmbclient.a $SCRATCH/$ARCH/lib/

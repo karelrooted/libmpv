@@ -1,0 +1,21 @@
+#!/bin/sh -xe
+
+# platform == .maccatalyst ? "-DENABLE_MONOTONIC_CLOCK=0" : "-DENABLE_MONOTONIC_CLOCK=1",
+cmake $SRC/$1  -Wno-dev \
+             -Ddefault_library=static \
+             -DCMAKE_VERBOSE_MAKEFILE=0 \
+             -DBUILD_SHARED_LIBS=false \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_PREFIX_PATH=$SCRATCH/$ARCH \
+             -DCMAKE_INSTALL_PREFIX=$SCRATCH/$ARCH \
+             -DCMAKE_OSX_SYSROOT=$SDKPATH \
+             -DENABLE_STDCXX_SYNC=1 \
+             -DENABLE_CXX11=1 \
+             -DENABLE_DEBUG=0 \
+             -DENABLE_LOGGING=0 \
+             -DENABLE_HEAVY_LOGGING=0 \
+             -DENABLE_APPS=0 \
+             -DENABLE_SHARED=0 \
+             -DENABLE_MONOTONIC_CLOCK=1
+make -j5 -s
+make -j5 install -s

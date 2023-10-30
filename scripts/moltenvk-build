@@ -1,0 +1,57 @@
+#!/bin/sh -xe
+
+#unset CC
+cd $SRC/MoltenVK
+git apply $ROOT/patch/moltenvk/moltenvk.patch || true
+./fetchDependencies --all
+if [[ ! -z $DEBUG_SWITCH ]]; then
+    make all-debug
+else
+    make all
+fi
+git stash
+mkdir -p $ROOT/Framework
+cp -R ./Package/Release/MoltenVK/MoltenVK.xcframework $ROOT/Framework/MoltenVK.xcframework
+
+PLATFORMS="macos ios tvos isimulator tvsimulator"
+for PLATFORM in $PLATFORMS; do
+        ARCHS="x86_64 arm64"
+        if [[ "$PLATFORM" = "ios" || "$PLATFORM" = "tvos" ]]; then
+            ARCHS="arm64"
+        fi
+        if [[ "$PLATFORM" = "ios" ]]; then
+            framework_name="ios-arm64"
+            FRAMEWORKS=" -framework IOKit -framework UIKit "
+        elif [[ "$PLATFORM" = "tvos" ]]; then
+            framework_name="tvos-arm64_arm64e"
+            FRAMEWORKS=" -framework UIKit "
+        elif [[ "$PLATFORM" = "macos" ]]; then
+            framework_name="macos-arm64_x86_64"
+            FRAMEWORKS=" -framework IOKit -framework APPKit "
+        elif [[ "$PLATFORM" = "maccatalyst" ]]; then
+            framework_name="ios-arm64_x86_64-maccatalyst"
+            FRAMEWORKS=" -framework IOKit -framework APPKit -framework UIKit "
+        elif [[ "$PLATFORM" = "isimulator" ]]; then
+            framework_name="ios-arm64_x86_64-simulator"
+            FRAMEWORKS=" -framework UIKit "
+        elif [[ "$PLATFORM" = "tvsimulator" ]]; then
+            framework_name="tvos-arm64_x86_64-simulator"
+            FRAMEWORKS=" -framework UIKit "
+        fi
+        SCRATCH="$ROOT/build/scratch-$PLATFORM"
+        for ARCH in $ARCHS; do
+             mkdir -p $SCRATCH/$ARCH/lib/pkgconfig
+             cat << 'EOF' |  sed "s|\$SRC|$SRC|g" |  sed "s|\$framework_name|$framework_name|g" | sed "s|\$FRAMEWORKS|$FRAMEWORKS|g" > $SCRATCH/$ARCH/lib/pkgconfig/vulkan.pc
+prefix=$SRC/MoltenVK/Package/Release/MoltenVK
+includedir=${prefix}/include
+libdir=${prefix}/MoltenVK.xcframework/$framework_name
+
+
+Name: Vulkan-Loader
+Description: Vulkan Loader
+Version: 1.3.268.1
+Libs: -L${libdir} -lMoltenVK -framework Metal -framework QuartzCore -framework Foundation -framework IOSurface -framework CoreGraphics -lc++ $FRAMEWORKS
+Cflags: -I${includedir}
+EOF
+        done
+done

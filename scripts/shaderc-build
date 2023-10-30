@@ -1,0 +1,19 @@
+#!/bin/sh -xe
+
+cd $SRC/$1 && ./utils/git-sync-deps
+cd -
+cd $SRC/$1/third_party/spirv-tools && git apply $ROOT/patch/shaderc/spirv-tools.patch || true
+cd -
+cmake -Wno-dev \
+            -GNinja \
+            -DBUILD_SHARED_LIBS=false \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=$SCRATCH/$ARCH \
+            -DCMAKE_INSTALL_PREFIX=$SCRATCH/$ARCH \
+            -DCMAKE_OSX_SYSROOT=$SDKPATH \
+            $SRC/$1
+ninja
+ninja install
+mv $SCRATCH/$ARCH/lib/pkgconfig/shaderc.pc $SCRATCH/$ARCH/lib/pkgconfig/shaderc_shared.pc
+mv $SCRATCH/$ARCH/lib/pkgconfig/shaderc_combined.pc $SCRATCH/$ARCH/lib/pkgconfig/shaderc.pc
+cd $SRC/$1/third_party/spirv-tools && git stash && cd -
