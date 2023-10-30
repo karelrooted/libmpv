@@ -1,0 +1,6 @@
+#!/bin/sh -xe
+
+architecture="darwin64-$ARCH"
+$SRC/$1/Configure $COMMON_OPTION_PREFIX $architecture no-async no-shared no-dso no-engine no-tests
+make -j5 -s
+make -j5 install -s

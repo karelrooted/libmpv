@@ -1,0 +1,20 @@
+[binaries]
+c = ['/usr/bin/clang', '-arch', 'x86_64']
+cpp = ['/usr/bin/clang++', '-arch', 'x86_64']
+objc = ['/usr/bin/clang', '-arch', 'x86_64']
+objcpp = ['/usr/bin/clang++', '-arch', 'x86_64']
+ar = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar'
+strip = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip'
+pkgconfig = 'pkg-config'
+
+[properties]
+has_function_printf = true
+has_function_hfkerhisadf = false
+
+[host_machine]
+system = 'darwin'
+subsystem = 'macos'
+kernel = 'xnu'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'

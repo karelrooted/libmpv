@@ -1,0 +1,6 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+meson setup $BUILDDIR $MESON_COMMON_OPTIONS -Denable_asm=true -Denable_tools=false -Denable_examples=false -Denable_tests=false
+meson compile -C $BUILDDIR
+meson install -C $BUILDDIR

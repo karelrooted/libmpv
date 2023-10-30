@@ -1,0 +1,12 @@
+#!/bin/sh -xe
+
+CFLAGS="$CFLAGS -I$SCRATCH/$ARCH/include "
+LDFLAGS="$LDFLAGS -L$SCRATCH/$ARCH/lib -lgmp "
+
+cd $SRC/$1 && ./.bootstrap && cd -
+$SRC/$1/configure $COMMON_OPTIONS  --disable-assembler \
+                --disable-openssl \
+                --disable-gcov \
+                --disable-documentation
+make -j5 -s
+make -j5 install -s

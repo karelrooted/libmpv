@@ -1,0 +1,7 @@
+#!/bin/sh -xe
+
+$SRC/$1/configure $COMMON_OPTIONS  --disable-maintainer-mode \
+                 --disable-assembly \
+                 --disable-fast-install
+make -j5 -s
+make -j5 install -s

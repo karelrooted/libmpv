@@ -1,0 +1,7 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+# if !ios -Dlibdovi=disabled
+meson setup $BUILDDIR $MESON_COMMON_OPTIONS -Dtests=false -Ddemos=false
+meson compile -C $BUILDDIR
+meson install -C $BUILDDIR

@@ -1,0 +1,22 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+opts="-Dlibmpv=true \
+                -Dspirv-cross=disabled \
+                -Dzimg=disabled \
+                -Djpeg=disabled \
+                -Drubberband=disabled \
+                -Djavascript=disabled"
+git apply $ROOT/patch/mpv/molten-vk-context.patch || true
+if [[ "$PLATFORM" == "maccatalyst" || ("$PLATFORM" == "macos" && $ARCH = "arm64") ]]; then
+    opts="$opts -Dlua=disabled"
+else
+    opts="$opts -Dlua=luajit"
+fi
+if [[ "$PLATFORM" != "macos" ]]; then
+    opts="$opts -Dswift-build=disabled -Dvideotoolbox-gl=disabled -Dios-gl=enabled"
+fi
+meson setup $BUILDDIR $MESON_COMMON_OPTIONS $opts -Dswift-flags="-sdk $SDKPATH -target $ARCH-apple-macos10.15"
+meson compile -C $BUILDDIR
+meson install -C $BUILDDIR
+cd $SRC/$1 && git stash && cd -

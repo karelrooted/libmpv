@@ -1,0 +1,23 @@
+#!/bin/sh -xe
+
+cd $SRC/$1
+brew list rustup || brew install rustup
+cargo install cargo-c
+rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
+cargo +nightly  build -Z build-std --target=aarch64-apple-tvos
+
+if [[ "$ARCH" = "arm64" ]]; then
+    ARCH_CPU_FAMILY="aarch64"
+else
+    ARCH_CPU_FAMILY="x86_64"
+fi
+if [[ "$PLATFORM" = "macos" ]]; then
+    DEPLOYMENT_TARGET="$ARCH_CPU_FAMILY-apple-darwin"
+elif [[ "$PLATFORM" = "ios" ]]; then
+    DEPLOYMENT_TARGET="$ARCH_CPU_FAMILY-apple-ios"
+else
+    exit 0
+fi
+rustup target add $DEPLOYMENT_TARGET
+cargo clean
+cargo cinstall --release --target=$DEPLOYMENT_TARGET

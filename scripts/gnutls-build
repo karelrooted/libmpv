@@ -1,0 +1,27 @@
+#!/bin/sh -xe
+
+CFLAGS="$CFLAGS -I$SCRATCH/$ARCH/include "
+LDFLAGS="$LDFLAGS -L$SCRATCH/$ARCH/lib -lgmp "
+
+cd $SRC/$1 && ./bootstrap && cd -
+$SRC/$1/configure $COMMON_OPTIONS  --disable-fast-install \
+                --without-p11-kit \
+                --disable-nls \
+                --with-included-unistring \
+                --with-included-libtasn1 \
+                --disable-doc \
+                --disable-tests \
+                --disable-tools \
+                --without-idn \
+                --disable-manpages \
+                --without-brotli \
+                --enable-hardware-acceleration \
+                --disable-openssl-compatibility \
+                --disable-code-coverage \
+                --disable-rpath \
+                --disable-maintainer-mode \
+                --disable-full-test-suite \
+                --without-zlib \
+                --without-zstd
+make -j5 -s
+make -j5 install -s
