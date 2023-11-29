@@ -28,9 +28,6 @@
 [submodule "Vendor/srt"]
 	path = Vendor/srt
 	url = https://github.com/Haivision/srt.git
-[submodule "Vendor/smbclient"]
-	path = Vendor/smbclient
-	url = https://github.com/samba-team/samba.git
 [submodule "Vendor/nettle"]
 	path = Vendor/nettle
 	url = https://github.com/gnutls/nettle.git
@@ -64,3 +61,12 @@
 [submodule "Vendor/libdav1d"]
 	path = Vendor/libdav1d
 	url = https://github.com/videolan/dav1d
+[submodule "Vendor/smbclient"]
+	path = Vendor/smbclient
+	url = https://gitlab.com/samba-team/samba.git
+[submodule "Vendor/readline"]
+	path = Vendor/readline
+	url = https://git.savannah.gnu.org/git/readline.git
+[submodule "Vendor/libdovi"]
+	path = Vendor/libdovi
+	url = https://github.com/quietvoid/dovi_tool.git

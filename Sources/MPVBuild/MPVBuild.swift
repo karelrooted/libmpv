@@ -86,33 +86,35 @@ struct MPVBuild: ParsableCommand {
             try BuildSRT().buildALL()
         }
         if !disableLibass {
-            // try BuildPng().buildALL()
+            try BuildPng().buildALL()
+            try BuildHarfbuzz().buildALL()
             // try BuildBrotli().buildALL()
             try BuildFreetype().buildALL()
             try BuildFribidi().buildALL()
-            try BuildHarfbuzz().buildALL()
             try BuildASS().buildALL()
         }
         if enableLibsmbclient {
+            try BuildReadline().buildALL()
             try BuildGmp().buildALL()
             try BuildNettle().buildALL()
             try BuildGnutls().buildALL()
             try BuildSmbclient().buildALL()
         }
         if !disablePlacebo {
-            // try BuildMoltenVK().buildALL()
-            // try BuildShaderc().buildALL()
+            try BuildMoltenVK().buildALL()
+            try BuildShaderc().buildALL()
             try BuildLittleCms().buildALL()
+            try BuildLibdovi().buildALL()
             try BuildLibPlacebo().buildALL()
         }
         if !disableFfmpeg {
-            // try BuildDav1d().buildALL()
+            try BuildDav1d().buildALL()
             try BuildLibbluray().buildALL()
             try BuildFFMPEG(enableDebug: enableDebug).buildALL()
         }
         if !disableMpv {
-            // try BuildUchardet().buildALL()
-            //try BuildLuaJit().buildALL()
+            try BuildUchardet().buildALL()
+            try BuildLuaJit().buildALL()
             try BuildMPV(disableStaticLinkMoltenVkOnMac: disableStaticLinkMoltenVkOnMac).buildALL()
         }
     }
@@ -120,7 +122,7 @@ struct MPVBuild: ParsableCommand {
 
 private enum Library: String, CaseIterable {
     case ffmpeg, freetype, fribidi, harfbuzz, libass, libpng, mpv, openssl, srt, smbclient,
-         gnutls, gmp, nettle, brotli, uchardet, libplacebo, littlecms, libbluray, LuaJIT, shaderc, MoltenVK, libdav1d
+         gnutls, gmp, nettle, brotli, uchardet, libplacebo, littlecms, libbluray, LuaJIT, shaderc, MoltenVK, libdav1d, readline, libdovi
 }
 
 private class BaseBuild {
@@ -156,10 +158,7 @@ private class BaseBuild {
         // try? _ = Utility.launch(path: "/usr/bin/make", arguments: ["clean"], currentDirectoryURL: buildURL)
         let environ = environment(platform: platform, arch: arch)
         if FileManager.default.fileExists(atPath: (directoryURL + "meson.build").path) {
-            // let meson = Utility.shell("which meson", isOutput: true)!
-            let meson = "/usr/local/bin/meson"
-            // print("before meson")
-            // print(meson)
+            let meson = Utility.shell("which meson", isOutput: true)!
             var argus = arguments(platform: platform, arch: arch)
             let crossFile = crossFilePath(platform: platform, arch: arch)
             if crossFile != "" {
@@ -194,7 +193,8 @@ private class BaseBuild {
         }
         let configure = directoryURL + "\(configureFileName())"
         var bootstrap = directoryURL + "bootstrap"
-        if !FileManager.default.fileExists(atPath: configure.path), FileManager.default.fileExists(atPath: bootstrap.path) {
+        //if !FileManager.default.fileExists(atPath: configure.path), FileManager.default.fileExists(atPath: bootstrap.path) {
+        if FileManager.default.fileExists(atPath: bootstrap.path) {
             try Utility.launch(executableURL: bootstrap, arguments: [], currentDirectoryURL: directoryURL, environment: environ)
         }
         bootstrap = directoryURL + ".bootstrap"
@@ -225,11 +225,11 @@ private class BaseBuild {
             path = "ios-arm64_x86_64-maccatalyst"
         }
 
-        let vulkanPkgUrl = buildURL + "pkgconfig"
+        let vulkanPkgUrl = libraryThinDir(library: .MoltenVK, platform: platform, arch: arch) + "pkgconfig"
         try? FileManager.default.createDirectory(at: vulkanPkgUrl, withIntermediateDirectories: true, attributes: nil)
         let pkgfile = vulkanPkgUrl + "vulkan.pc"
         let str = """
-        prefix=\((directoryURL + "/../..").path)/Framework/MoltenVK.xcframework/\(path)
+        prefix=\((directoryURL + "../../Framework/MoltenVK.xcframework" + path).path)
         includedir=${prefix}/include
         libdir=${prefix}
 
@@ -247,7 +247,7 @@ private class BaseBuild {
         }
 
         if platform == .macos {
-            // return ""
+            //return ""
         }
         return (platform == .ios && arch == .arm64e) ? "" : vulkanPkgUrl.path + ":"
     }
@@ -320,6 +320,7 @@ private class BaseBuild {
     }
 
     func cFlags(platform: PlatformType, arch: ArchType) -> String {
+        //TODO remove temp debug flag -g
         var cflags = "-g -arch " + arch.rawValue + " " + platform.deploymentTarget(arch)
         if platform == .macos || platform == .maccatalyst {
             cflags += " -fno-common"
@@ -345,27 +346,33 @@ private class BaseBuild {
         ]
     }
 
-    func createXCFramework(useFramework: Bool = false) throws {
+    func frameworks(useDylib: Bool = false) throws -> [String] { 
         var frameworks: [String] = []
         if let platform = BaseBuild.platforms.first {
-            if let arch = architectures(platform).first {
-                let lib = thinDir(platform: platform, arch: arch) + "lib"
-                if FileManager.default.fileExists(atPath: lib.path) {
-                    let fileNames = try FileManager.default.contentsOfDirectory(atPath: lib.path)
-                    for fileName in fileNames {
-                        if fileName.hasPrefix("lib"), fileName.hasSuffix(".a") {
-                            frameworks.append("lib" + fileName.dropFirst(3).dropLast(2))
+                if let arch = architectures(platform).first {
+                    let lib = thinDir(platform: platform, arch: arch) + "lib"
+                    if FileManager.default.fileExists(atPath: lib.path) {
+                        let fileNames = try FileManager.default.contentsOfDirectory(atPath: lib.path)
+                        for fileName in fileNames {
+                            let suffix = useDylib ? "dylib" : "a"
+                            if fileName.hasPrefix("lib"), fileName.hasSuffix(".\(suffix)") {
+                                frameworks.append("lib" + fileName.dropFirst(3).dropLast(suffix.count + 1))
+                            }
                         }
                     }
                 }
-            }
         }
+        return frameworks
+    }
+
+    func createXCFramework(useFramework: Bool = false, useDylib: Bool = false) throws {
+        let frameworks = try frameworks(useDylib: useDylib)
         for framework in frameworks {
             var arguments = ["-create-xcframework"]
             for platform in PlatformType.allCases {
                 if useFramework {
                     do {
-                        let result = try createFramework(framework: framework, platform: platform)
+                        let result = try createFramework(framework: framework, platform: platform, useDylib: useDylib)
                         arguments.append("-framework")
                         arguments.append(result)
                     } catch {
@@ -410,22 +417,26 @@ private class BaseBuild {
         }
     }
 
-    private func createFramework(framework: String, platform: PlatformType) throws -> String {
+    private func createFramework(framework: String, platform: PlatformType, useDylib: Bool = false) throws -> String {
         let frameworkDir = URL.currentDirectory + [library.rawValue, platform.rawValue, "\(framework.firstUppercased).framework"]
         try? FileManager.default.removeItem(at: frameworkDir)
         try? FileManager.default.createDirectory(at: frameworkDir, withIntermediateDirectories: true, attributes: nil)
         var arguments = ["-create"]
+        let suffix = useDylib ? "dylib" : "a"
         for arch in architectures(platform) {
             let prefix = thinDir(platform: platform, arch: arch)
-            if !FileManager.default.fileExists(atPath: (prefix + ["lib", "\(framework).a"]).path) {
+            if !FileManager.default.fileExists(atPath: (prefix + ["lib", "\(framework).\(suffix)"]).path) {
                 continue
             }
-            arguments.append((prefix + ["lib", "\(framework).a"]).path)
+            arguments.append((prefix + ["lib", "\(framework).\(suffix)"]).path)
             var headerURL = prefix + "include" + framework
             if !FileManager.default.fileExists(atPath: headerURL.path) {
                 headerURL = prefix + "include"
             }
             try? FileManager.default.copyItem(at: headerURL, to: frameworkDir + "Headers")
+        }
+        if arguments.count == 1 {
+            throw MyError.buildError("build framework error")
         }
         arguments.append("-output")
         arguments.append((frameworkDir + framework.firstUppercased).path)
@@ -447,11 +458,15 @@ private class BaseBuild {
         }
         """
         FileManager.default.createFile(atPath: frameworkDir.path + "/Modules/module.modulemap", contents: modulemap.data(using: .utf8), attributes: nil)
-        createPlist(path: frameworkDir.path + "/Info.plist", name: framework.firstUppercased, minVersion: platform.minVersion, platform: platform.sdk())
+        createPlist(path: frameworkDir.path + "/Info.plist", name: framework.firstUppercased, minVersion: platform.minVersion, platform: platform.sdk(), useDylib: useDylib)
         return frameworkDir.path
     }
 
     func thinDir(platform: PlatformType, arch: ArchType) -> URL {
+        URL.currentDirectory + [library.rawValue, platform.rawValue, "thin", arch.rawValue]
+    }
+
+    func libraryThinDir(library: Library, platform: PlatformType, arch: ArchType) -> URL {
         URL.currentDirectory + [library.rawValue, platform.rawValue, "thin", arch.rawValue]
     }
 
@@ -463,8 +478,9 @@ private class BaseBuild {
         []
     }
 
-    private func createPlist(path: String, name: String, minVersion: String, platform: String) {
-        let identifier = "com.kintan.ksplayer." + name
+    private func createPlist(path: String, name: String, minVersion: String, platform: String, useDylib: Bool = false) {
+        let identifier = "org.libmpv." + name
+        //let executeName = name + (useDylib ? ".dylib" : ".a")
         let content = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -561,12 +577,6 @@ private class BuildFFMPEG: BaseBuild {
         return cflags
     }
 
-    override func ldFlags(platform: PlatformType, arch: ArchType) -> String {
-        var ldflags = super.ldFlags(platform: platform, arch: arch)
-        ldflags += " /usr/local/lib/libfontconfig.a "
-        return ldflags
-    }
-
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
         var arguments = super.arguments(platform: platform, arch: arch)
         arguments += ffmpegConfiguers
@@ -650,8 +660,8 @@ private class BuildFFMPEG: BaseBuild {
         }
     }
 
-    override func createXCFramework(useFramework: Bool = true) throws {
-        try super.createXCFramework(useFramework: true)
+    override func createXCFramework(useFramework: Bool = true, useDylib: Bool = false) throws {
+        try super.createXCFramework(useFramework: true, useDylib: false)
         // makeFFmpegSourece()
     }
 
@@ -720,7 +730,7 @@ private class BuildFFMPEG: BaseBuild {
         let lldbFile = URL.currentDirectory + "LLDBInitFile"
         try? FileManager.default.removeItem(at: lldbFile)
         FileManager.default.createFile(atPath: lldbFile.path, contents: nil, attributes: nil)
-        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/ffmpeg.patch"], currentDirectoryURL: directoryURL)
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/ffmpeg/ffmpeg.patch"], currentDirectoryURL: directoryURL)
         try super.buildALL()
     }
 
@@ -792,8 +802,8 @@ private class BuildOpenSSL: BaseBuild {
             ]
     }
 
-    override func createXCFramework(useFramework: Bool = true) throws {
-        try super.createXCFramework(useFramework: true)
+    override func createXCFramework(useFramework: Bool = true, useDylib: Bool = false) throws {
+        try super.createXCFramework(useFramework: true, useDylib: useDylib)
     }
 }
 
@@ -849,97 +859,127 @@ private class BuildLuaJit: BaseBuild {
 
 private class BuildSmbclient: BaseBuild {
     init() {
-        Utility.shell("brew list samba ||  brew install samba")
-        // Utility.shell("brew list readline ||  brew install readline")
         super.init(library: .smbclient)
     }
 
-    override func scratch(platform _: PlatformType, arch _: ArchType) -> URL {
-        directoryURL
+    func compileEt(platform: PlatformType, arch: ArchType) -> URL{
+        return URL(fileURLWithPath: "/usr/local/bin/compile_et")
+    }
+
+    func asn1Compile(platform: PlatformType, arch: ArchType) -> URL{
+        return URL(fileURLWithPath: "/usr/local/bin/asn1_compile")
+    }
+
+    override func frameworks(useDylib: Bool = false) throws -> [String] { 
+        return ["libsmbclient"]
+    }
+
+    override func createXCFramework(useFramework: Bool = true, useDylib: Bool = false) throws {
+        try super.createXCFramework(useFramework: true, useDylib: true)
     }
 
     override func build(platform: PlatformType, arch: ArchType) throws {
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/samba/fix-secure-getenv.patch"], currentDirectoryURL: directoryURL)
         if platform != .macos {
-            return
+            let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/samba/no-system.patch"], currentDirectoryURL: directoryURL)
         }
-        try super.build(platform: platform, arch: arch)
-        /* let buildURL = scratch(platform: platform, arch: arch)
-         try? FileManager.default.createDirectory(at: buildURL, withIntermediateDirectories: true, attributes: nil)
-         let environ = environment(platform: platform, arch: arch)
-         try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "distclean"], currentDirectoryURL: directoryURL, environment: environ)
-         try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "configure"] + arguments(platform: platform, arch: arch), currentDirectoryURL: directoryURL, environment: environ)
-         try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "build"], currentDirectoryURL: directoryURL, environment: environ)
-         try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "install"], currentDirectoryURL: directoryURL, environment: environ) */
+        if platform != .macos || !arch.executable() {
+            let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/samba/cross_compile.patch"], currentDirectoryURL: directoryURL)
+        }
+        if platform == .tvos || platform == .tvsimulator {
+            let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/samba/no_fork_and_exec.patch"], currentDirectoryURL: directoryURL)
+        }
+        
+        let thinURL = thinDir(platform: platform, arch: arch)
+        try? FileManager.default.removeItem(at: thinURL)
+        let environ = environment(platform: platform, arch: arch)
+        try? _ = Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "clean"], currentDirectoryURL: directoryURL, environment: environ)
+        try? _ = Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "distclean"], currentDirectoryURL: directoryURL, environment: environ)
+        try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "configure"] + arguments(platform: platform, arch: arch), currentDirectoryURL: directoryURL, environment: environ)
+        try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "--targets=client/smbclient"], currentDirectoryURL: directoryURL, environment: environ)
+        try Utility.launch(path: "/usr/bin/python3", arguments: ["./buildtools/bin/waf", "install"], currentDirectoryURL: directoryURL, environment: environ)
+        if platform == .macos, arch.executable() {
+            try? FileManager.default.copyItem(at: directoryURL + "bin/default/third_party/heimdal_build/compile_et", to: compileEt(platform: platform, arch: arch))
+            try? FileManager.default.copyItem(at: directoryURL + "bin/default/third_party/heimdal_build/asn1_compile", to: compileEt(platform: platform, arch: arch))
+        }
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["stash"], currentDirectoryURL: directoryURL)
+    }
+
+    override func cFlags(platform: PlatformType, arch: ArchType) -> String {
+        var cflags = super.cFlags(platform: platform, arch: arch)
+        cflags +=  " -I\(libraryThinDir(library: .nettle, platform: platform, arch: arch).path)/include "
+        cflags +=  " -I\(libraryThinDir(library: .gmp, platform: platform, arch: arch).path)/include "
+        cflags +=  " -I\(libraryThinDir(library: .gnutls, platform: platform, arch: arch).path)/include "
+        cflags +=  " -I\(libraryThinDir(library: .readline, platform: platform, arch: arch).path)/include "
+        return cflags
+    }
+
+    override func ldFlags(platform: PlatformType, arch: ArchType) -> String {
+        var ldflags = super.ldFlags(platform: platform, arch: arch)
+        ldflags += " -L\(libraryThinDir(library: .gmp, platform: platform, arch: arch).path)/lib -lgmp "
+            + " -L\(libraryThinDir(library: .nettle, platform: platform, arch: arch).path)/lib -lnettle "
+            + " -L\(libraryThinDir(library: .nettle, platform: platform, arch: arch).path)/lib -lhogweed "
+            + " -L\(libraryThinDir(library: .gnutls, platform: platform, arch: arch).path)/lib -lgnutls -framework Security -framework CoreFoundation "
+            + " -L\(libraryThinDir(library: .readline, platform: platform, arch: arch).path)/lib -lreadline "
+        return ldflags
     }
 
     override func environment(platform: PlatformType, arch: ArchType) -> [String: String] {
         var environ = super.environment(platform: platform, arch: arch)
         environ["PATH"] = (directoryURL + "buildtools/bin").path + ":" + environ["PATH"]!
-        environ["CPPFLAGS"] = environ["CPPFLAGS"]! + " -I/usr/local/opt/readline/include"
-        environ["PKG_CONFIG_PATH"] = environ["PKG_CONFIG_PATH"]! + "/usr/local/opt/readline/lib/pkgconfig"
-        environ["LDFLAGS"] = environ["LDFLAGS"]! + " -L/usr/local/opt/readline/lib  "
         environ["PYTHONHASHSEED"] = "1"
+        environ["WAF_MAKE"] = "1"
         return environ
     }
 
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
         var argus = super.arguments(platform: platform, arch: arch) +
             [
-                "--without-gpgme",
-                "--bundled-libraries=NONE,talloc,ldb,tdb,tevent",
-                "--disable-cephfs",
-                "--disable-cups",
-                "--disable-iprint",
-                "--disable-glusterfs",
-                "--disable-python",
-                "--without-acl-support",
-                "--without-ad-dc",
-                "--without-ads",
+                "--without-cluster-support",
+                "--disable-rpath",
                 "--without-ldap",
-                "--without-libarchive",
-                "--without-json",
                 "--without-pam",
-                "--without-regedit",
-                "--without-syslog",
-                "--without-utmp",
-                "--without-gettext",
+                "--enable-fhs",
                 "--without-winbind",
-                "--with-shared-modules=!vfs_snapper",
-                // "--with-system-mitkrb5",
-                // "--enable-static",
-                // "--disable-shared",
+                "--without-ads",
+                "--disable-avahi",
+                "--disable-cups",
+                "--without-gettext",
+                "--without-ad-dc",
+                "--without-acl-support",
+                "--without-utmp",
+                "--disable-iprint",
+                "--nopyc",
+                "--nopyo",
+                "--disable-python",
+                "--disable-symbol-versions",
+                "--without-json",
+                "--without-libarchive",
+                "--without-regedit",
+                "--without-lttng",
+                "--without-gpgme",
+                "--disable-cephfs",
+                "--disable-glusterfs",
+                "--without-syslog",
+                "--without-quotas",
+                //"--builtin-libraries=!smbclient,!smbd_base,!smbstatus,ALL",
+                "--nonshared-binary=smbtorture,smbd/smbd,client/smbclient",
+                "--with-static-modules=!vfs_snapper,ALL",
+                //"--with-static-modules=ALL",
+                //"--with-shared-modules=!vfs_snapper",
                 "--host=\(platform.host(arch: arch))",
-                // "--with-sysroot=\(platform.isysroot())",
+                "--bundled-libraries=ALL",
             ]
-        if platform != .macos {
+        if platform != .macos || !arch.executable() {
             argus.append("--cross-compile")
-            if platform == .ios {
-                argus.append("--cross-execute='/User/liumiuyong/simulator/iOS.17.0.simulator -L \(platform.isysroot())'")
-            } else if platform == .tvos {
-                argus.append("--cross-execute='/User/liumiuyong/simulator/tvOS.17.0.simulator -L \(platform.isysroot())'")
-            }
+            let crossFile = crossAnswerPath(platform: platform, arch: arch)
+            argus.append("--cross-answers=\(crossFile)")
         }
         return argus
     }
-}
 
-private class BuildGmp: BaseBuild {
-    init() {
-        super.init(library: .gmp)
-    }
-
-    override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
-        super.arguments(platform: platform, arch: arch) +
-            [
-                // "--disable-maintainer-mode",
-                // "--disable-assembly",
-                "--with-pic",
-                "--enable-static",
-                "--disable-shared",
-                "--disable-fast-install",
-                "--host=\(platform.host(arch: arch))",
-                "--with-sysroot=\(platform.isysroot())",
-            ]
+    func crossAnswerPath(platform: PlatformType, arch: ArchType) -> String {
+        return (directoryURL + "../../Sources/MPVBuild/crossanswer.txt").path
     }
 }
 
@@ -988,18 +1028,96 @@ private class BuildLibbluray: BaseBuild {
 
     override func build(platform: PlatformType, arch: ArchType) throws {
         if platform != .macos {
-            var patch = "libbluray.patch"
-            if platform == .tvos || platform == .tvsimulator {
-                patch = "libbluray.tvos.patch"
-            }
-            let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/\(patch)"], currentDirectoryURL: directoryURL)
+            let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/libbluray/fix-no-dadisk.patch"], currentDirectoryURL: directoryURL)
+        }
+        if platform == .tvos || platform == .tvsimulator {
+            let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/libbluray/no_fork_and_exec.patch"], currentDirectoryURL: directoryURL)
         }
         try super.build(platform: platform, arch: arch)
         if platform != .macos {
             let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["stash"], currentDirectoryURL: directoryURL)
         }
-        
+    }
+}
 
+private class BuildLibdovi: BaseBuild {
+    init() {
+        super.init(library: .libdovi)
+        Utility.shell("brew list rustup || brew install rustup")
+        Utility.shell("cargo install cargo-c")
+        Utility.shell("rustup component add rust-src --toolchain nightly-x86_64-apple-darwin")
+        Utility.shell("cargo +nightly  build -Z build-std --target=aarch64-apple-tvos")
+    }
+
+    override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
+        super.arguments(platform: platform, arch: arch) +
+            [
+                "--target=\(deploymentTarget(platform: platform, arch: arch))"
+            ]
+    }
+
+    override func build(platform: PlatformType, arch: ArchType) throws {
+        if platform == .maccatalyst || platform == .isimulator  || platform == .tvsimulator || platform == .tvos {
+            return
+        }
+        let thinDir = thinDir(platform: platform, arch: arch)
+        try? FileManager.default.removeItem(at: thinDir)
+        try? FileManager.default.createDirectory(at: thinDir, withIntermediateDirectories: true, attributes: nil)
+        let environ = environment(platform: platform, arch: arch)
+        Utility.shell("rustup target add \(deploymentTarget(platform: platform, arch: arch))")
+        let cargo = Utility.shell("which cargo", isOutput: true)!
+        try Utility.launch(path: cargo, arguments: ["clean"], currentDirectoryURL: directoryURL + "dolby_vision", environment: environ)
+        try Utility.launch(path: cargo, arguments: ["cinstall", "--release"] + arguments(platform: platform, arch: arch), currentDirectoryURL: directoryURL + "dolby_vision", environment: environ)
+    }
+
+    func deploymentTarget(platform: PlatformType, arch: ArchType) -> String {
+        switch platform {
+        case .ios, .tvos:
+            return "\(arch.cpuFamily())-apple-\(platform.rawValue)"
+        case .macos:
+            return "\(arch.cpuFamily())-apple-darwin"
+        case .maccatalyst:
+            return "\(arch.cpuFamily())-apple-ios-macabi"
+        case .isimulator:
+            return deploymentTarget(platform: .ios, arch: arch) + "-sim"
+        case .tvsimulator:
+            return deploymentTarget(platform: .tvos, arch: arch) + "-sim"
+        }
+    }
+}
+
+private class BuildReadline: BaseBuild {
+    init() {
+        super.init(library: .readline)
+    }
+
+    override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
+        super.arguments(platform: platform, arch: arch) +
+            [
+                "--enable-static",
+                "--disable-shared",
+                "--host=\(platform.host(arch: arch))"
+            ]
+    }
+}
+
+private class BuildGmp: BaseBuild {
+    init() {
+        super.init(library: .gmp)
+    }
+
+    override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
+        super.arguments(platform: platform, arch: arch) +
+            [
+                "--disable-maintainer-mode",
+                "--disable-assembly",
+                "--with-pic",
+                "--enable-static",
+                "--disable-shared",
+                "--disable-fast-install",
+                "--host=\(platform.host(arch: arch))",
+                "--with-sysroot=\(platform.isysroot())",
+            ]
     }
 }
 
@@ -1011,20 +1129,29 @@ private class BuildNettle: BaseBuild {
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
         super.arguments(platform: platform, arch: arch) +
             [
-                // "--disable-mini-gmp",
-                "--enable-mini-gmp",
+                //"--disable-fat",
+                //"--enable-mini-gmp",
                 "--disable-assembler",
                 "--disable-openssl",
                 "--disable-gcov",
                 "--disable-documentation",
-                // "--with-pic",
                 "--enable-static",
                 "--disable-shared",
-                // "--disable-fast-install",
                 "--disable-dependency-tracking",
                 "--host=\(platform.host(arch: arch))",
-                // "--with-sysroot=\(platform.isysroot())",
             ]
+    }
+
+    override func cFlags(platform: PlatformType, arch: ArchType) -> String {
+        var cflags = super.cFlags(platform: platform, arch: arch)
+        cflags +=  " -I\(libraryThinDir(library: .gmp, platform: platform, arch: arch).path)/include "
+        return cflags
+    }
+
+    override func ldFlags(platform: PlatformType, arch: ArchType) -> String {
+        var ldflags = super.ldFlags(platform: platform, arch: arch)
+        ldflags +=  " -L\(libraryThinDir(library: .gmp, platform: platform, arch: arch).path)/lib -lgmp "
+        return ldflags
     }
 }
 
@@ -1036,37 +1163,43 @@ private class BuildGnutls: BaseBuild {
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
         super.arguments(platform: platform, arch: arch) +
             [
-                "--with-included-libtasn1",
-                "--with-included-unistring",
-                "--without-idn",
-                "--without-p11-kit",
-                "--with-nettle-mini",
-                "--enable-hardware-acceleration",
-                "--disable-openssl-compatibility",
-                "--disable-code-coverage",
-                "--disable-doc",
-                "--disable-manpages",
-                "--without-brotli",
-                // "--disable-guile",
-                "--disable-tests",
-                "--disable-tools",
-                "-disable-rpath",
-                "--disable-maintainer-mode",
-                "--disable-full-test-suite",
-                "--with-pic",
                 "--enable-static",
                 "--disable-shared",
                 "--disable-fast-install",
+                "--without-p11-kit",
+                "--disable-nls",
+                "--with-included-unistring",
+                "--with-included-libtasn1",
+                "--disable-doc",
+                "--disable-tests",
+                "--disable-tools",
+                "--without-idn",
+                "--disable-manpages",
+                "--without-brotli",
+                "--enable-hardware-acceleration",
+                "--disable-openssl-compatibility",
+                "--disable-code-coverage",
+                "--disable-rpath",
+                "--disable-maintainer-mode",
+                "--disable-full-test-suite",
+                "--without-zlib",
+                "--without-zstd",
                 "--disable-dependency-tracking",
                 "--host=\(platform.host(arch: arch))",
                 "--with-sysroot=\(platform.isysroot())",
             ]
     }
 
-    override func configure(buildURL: URL, environ: [String: String], platform: PlatformType, arch: ArchType) throws {
-        let bootstrap = directoryURL + "bootstrap"
-        try Utility.launch(executableURL: bootstrap, arguments: [], currentDirectoryURL: directoryURL, environment: environ)
-        try super.configure(buildURL: buildURL, environ: environ, platform: platform, arch: arch)
+    override func cFlags(platform: PlatformType, arch: ArchType) -> String {
+        var cflags = super.cFlags(platform: platform, arch: arch)
+        cflags +=  " -I/Volumes/Skynet/src/github.com/karelrooted/libmpv/build/gmp/\(platform)/thin/\(arch)/include "
+        return cflags
+    }
+
+    override func ldFlags(platform: PlatformType, arch: ArchType) -> String {
+        var ldflags = super.ldFlags(platform: platform, arch: arch)
+        ldflags +=  " -L\(libraryThinDir(library: .gmp, platform: platform, arch: arch).path)/lib -lgmp "
+        return ldflags
     }
 }
 
@@ -1110,31 +1243,15 @@ private class BuildFribidi: BaseBuild {
         super.init(library: .fribidi)
     }
 
-    override func configure(buildURL: URL, environ: [String: String], platform: PlatformType, arch: ArchType) throws {
-        try super.configure(buildURL: buildURL, environ: environ, platform: platform, arch: arch)
-        let makefile = buildURL + "Makefile"
-        // DISABLE BUILDING OF doc FOLDER (doc depends on c2man which is not available on all platforms)
-        if let data = FileManager.default.contents(atPath: makefile.path), var str = String(data: data, encoding: .utf8) {
-            str = str.replacingOccurrences(of: " doc ", with: " ")
-            try? str.write(toFile: makefile.path, atomically: true, encoding: .utf8)
-        }
-    }
-
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
-        super.arguments(platform: platform, arch: arch) +
-            [
-                "--disable-deprecated",
-                "--disable-debug",
-                "--with-pic",
-                "--enable-static",
-                "--disable-shared",
-                "--disable-fast-install",
-                "--disable-dependency-tracking",
-                "--host=\(platform.host(arch: arch))",
-                "--with-sysroot=\(platform.isysroot())",
-            ]
+        [
+            "-Ddeprecated=false",
+            "-Ddocs=false",
+            "-Dtests=false",
+        ]
     }
 }
+
 
 private class BuildHarfbuzz: BaseBuild {
     init() {
@@ -1142,19 +1259,10 @@ private class BuildHarfbuzz: BaseBuild {
     }
 
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
-        super.arguments(platform: platform, arch: arch) +
-            [
-                "--with-glib=no",
-                "--with-freetype=no",
-                "--with-directwrite=no",
-                "--with-pic",
-                "--enable-static",
-                "--disable-shared",
-                "--disable-fast-install",
-                "--disable-dependency-tracking",
-                "--host=\(platform.host(arch: arch))",
-                "--with-sysroot=\(platform.isysroot())",
-            ]
+        [
+            "-Dglib=disabled",
+            "-Ddocs=disabled",
+        ]
     }
 }
 
@@ -1164,25 +1272,30 @@ private class BuildFreetype: BaseBuild {
     }
 
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
-        super.arguments(platform: platform, arch: arch) +
+        [
+            "-Dbrotli=disabled",
+        ]
+    }
+}
+
+private class BuildPng: BaseBuild {
+    init() {
+        super.init(library: .libpng)
+    }
+
+    override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
+        return super.arguments(platform: platform, arch: arch) +
             [
-                "--with-zlib",
-                "--without-harfbuzz",
-                "--without-bzip2",
-                // "--without-fsref",
-                "--without-quickdraw-toolbox",
-                "--without-quickdraw-carbon",
-                // "--without-ats",
-                "--disable-mmap",
-                "--with-png=no",
-                "--with-brotli=no",
-                "--with-pic",
                 "--enable-static",
                 "--disable-shared",
-                "--disable-fast-install",
                 "--host=\(platform.host(arch: arch))",
                 "--with-sysroot=\(platform.isysroot())",
             ]
+    }
+
+    override func configure(buildURL: URL, environ: [String: String], platform: PlatformType, arch: ArchType) throws {
+        let configure = directoryURL + "\(configureFileName())"
+        try Utility.launch(executableURL: configure, arguments: arguments(platform: platform, arch: arch), currentDirectoryURL: buildURL, environment: environ)
     }
 }
 
@@ -1229,28 +1342,6 @@ private class BuildBrotli: BaseBuild {
             directoryURL.path,
         ]
         try Utility.launch(path: "/usr/local/bin/cmake", arguments: arguments, currentDirectoryURL: buildURL, environment: environ)
-    }
-}
-
-private class BuildPng: BaseBuild {
-    init() {
-        super.init(library: .libpng)
-    }
-
-    override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
-        let asmOptions = arch == .x86_64 ? "--enable-intel-sse=yes" : "--enable-arm-neon=yes"
-        return super.arguments(platform: platform, arch: arch) +
-            [
-                asmOptions,
-                "--disable-unversioned-libpng-pc",
-                "--disable-unversioned-libpng-config",
-                "--with-pic",
-                "--enable-static",
-                "--disable-shared",
-                "--disable-fast-install",
-                "--host=\(platform.host(arch: arch))",
-                "--with-sysroot=\(platform.isysroot())",
-            ]
     }
 }
 
@@ -1317,9 +1408,17 @@ private class BuildShaderc: BaseBuild {
         super.init(library: .shaderc)
     }
 
+    override func frameworks(useDylib: Bool = false) throws -> [String] { 
+        return ["libshaderc_combined"]
+    }
+
+    override func createXCFramework(useFramework: Bool = false, useDylib: Bool = false) throws {
+        try super.createXCFramework(useFramework: false, useDylib: false)
+    }
+
     override func buildALL() throws {
         Utility.shell("\(directoryURL.path)/utils/git-sync-deps")
-        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/spirv-tools.patch"], currentDirectoryURL: directoryURL + "third_party/spirv-tools")
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/shaderc/spirv-tools.patch"], currentDirectoryURL: directoryURL + "third_party/spirv-tools")
         try super.buildALL()
     }
 
@@ -1392,6 +1491,9 @@ private class BuildLibPlacebo: BaseBuild {
             // argus.append("-Dlcms=disabled")
             // argus.append("-Dvulkan=disabled")
         }
+        if platform == .tvos {
+            argus.append("-Dlibdovi=disabled")
+        }
         return argus
     }
 }
@@ -1444,58 +1546,28 @@ private class BuildMPV: BaseBuild {
         try super.build(platform: platform, arch: arch)
     }
 
-    override func buildALL() throws {
-        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/mpv.patch"], currentDirectoryURL: directoryURL)
-        try super.buildALL()
-
-        // copy headers
-        /*let includeSourceDirectory = URL.currentDirectory + ["../Framework", "Libmpv.xcframework", "tvos-arm64", "Headers", "mpv"]
-        let includeDestDirectory = URL.currentDirectory + ["../Sources", "LibMPV", "include"]
-        print("Copy libmpv headers to path: \(includeDestDirectory.path)")
-        try? FileManager.default.removeItem(at: includeDestDirectory)
-        try? FileManager.default.copyItem(at: includeSourceDirectory, to: includeDestDirectory)*/
-    }
-
     override func arguments(platform: PlatformType, arch: ArchType) -> [String] {
         var arguments =
             [
-                /*
-                 "--verbose",
-                 "--disable-cplayer",
-                 "--disable-lcms2",
-                 "--disable-lua",
-                 "--disable-rubberband",
-                 "--disable-zimg",
-                 "--disable-javascript",
-                 "--disable-jpeg",
-                 "--disable-swift",
-                 "--disable-vapoursynth",
-                 "--enable-uchardet",
-                 "--enable-lgpl",
-                 "--enable-libmpv-static",
-                 platform == .macos ? "--enable-videotoolbox-gl" : (platform == .maccatalyst ? "--enable-gl" : "--enable-ios-gl"),
-                 platform == .macos ? "-Dvideotoolbox-gl=enabled" : (platform == .maccatalyst ? "-Dgl=enabled" : "-Dios-gl=enabled"),
-                  */
                 // "-Dprefer_static=true",
-                // "-Dvideotoolbox-gl=disabled",
                 "-Dlibmpv=true",
-                "-Dswift-build=disabled",
+                "-Dspirv-cross=disabled",
+                //"-Dshaderc=disabled",
+                //"-Dvulkan=disabled",
+                "-Dzimg=disabled",
+                "-Djpeg=disabled",
+                "-Drubberband=disabled",
+                "-Djavascript=disabled",
+                "-Dswift-flags=-sdk \(platform.isysroot()) -target \(platform.deploymentTargetMpv(arch: arch))",
+                platform == .maccatalyst || (platform == .macos && arch == .arm64) ? "-Dlua=disabled" : "-Dlua=luajit"
             ]
-        if platform == .maccatalyst || (platform == .macos && arch == .arm64) {
-            arguments.append("-Dlua=disabled")
-        } else {
-            arguments.append("-Dlua=luajit")
-        }
-        arguments.append("-Drubberband=disabled")
-        arguments.append("-Djavascript=disabled")
-        arguments.append("-Dzimg=disabled")
-        arguments.append("-Djpeg=disabled")
-        // arguments.append("-Dshaderc=disabled")
-        arguments.append("-Dspirv-cross=disabled")
-        // arguments.append("-Dvulkan=disabled")
         if platform != .macos {
+            arguments.append("-Dswift-build=disabled")
             arguments.append("-Dvideotoolbox-gl=disabled")
+            //arguments.append("-Dvideotoolbox-pl=disabled")
             arguments.append("-Dios-gl=enabled")
+        } else {
+            //arguments.append("-Dvideotoolbox-gl=disabled")
         }
         return arguments
     }
@@ -1560,6 +1632,19 @@ private enum PlatformType: String, CaseIterable {
             return "-mmacosx-version-min=\(minVersion)"
         case .maccatalyst:
             return arch == .x86_64 ? "-target x86_64-apple-ios-macabi" : "-target arm64-apple-ios-macabi"
+        }
+    }
+
+    fileprivate func deploymentTargetMpv(arch: ArchType) -> String {
+        switch self {
+        case .ios, .tvos, .macos:
+            return "\(arch.targetCpu())-apple-\(rawValue)\(minVersion)"
+        case .maccatalyst:
+            return "\(arch.targetCpu())-apple-ios-macabi"
+        case .isimulator:
+            return PlatformType.ios.deploymentTargetMpv(arch: arch) + "-simulator"
+        case .tvsimulator:
+            return PlatformType.tvos.deploymentTargetMpv(arch: arch) + "-simulator"
         }
     }
 
@@ -1663,9 +1748,9 @@ enum ArchType: String, CaseIterable {
 
 enum Utility {
     @discardableResult
-    static func shell(_ command: String, isOutput _: Bool = false, currentDirectoryURL: URL? = nil, environment: [String: String] = [:]) -> String? {
+    static func shell(_ command: String, isOutput: Bool = false, currentDirectoryURL: URL? = nil, environment: [String: String] = [:]) -> String? {
         do {
-            return try launch(executableURL: URL(fileURLWithPath: "/bin/zsh"), arguments: ["-c", command], currentDirectoryURL: currentDirectoryURL, environment: environment)
+            return try launch(executableURL: URL(fileURLWithPath: "/bin/zsh"), arguments: ["-c", command], isOutput: isOutput, currentDirectoryURL: currentDirectoryURL, environment: environment)
         } catch {
             print(error.localizedDescription)
             return nil

@@ -1,0 +1,71 @@
+diff --git a/source3/wscript b/source3/wscript
+index b7f96f3bf99..f0c10957b63 100644
+--- a/source3/wscript
++++ b/source3/wscript
+@@ -1589,27 +1589,8 @@ int main(void) {
+         if (host_os.rfind('linux') > -1):
+             conf.DEFINE('HAVE_QUOTACTL_LINUX', '1')
+         elif not conf.CONFIG_SET("HAVE_XFS_QUOTAS"):
+-            if not conf.CHECK_CODE('''
+-                #define HAVE_QUOTACTL_4A 1
+-                #define AUTOCONF_TEST 1
+-                #include "../tests/sysquotas.c"
+-                ''',
+-                                   cflags=conf.env['WERROR_CFLAGS'],
+-                                   define='HAVE_QUOTACTL_4A',
+-                                   msg='for QUOTACTL_4A: long quotactl(int cmd, char *special, qid_t id, caddr_t addr)',
+-                                   execute=True,
+-                                   addmain=False):
+-
+-                conf.CHECK_CODE('''
+-                #define HAVE_QUOTACTL_4B 1
+-                #define AUTOCONF_TEST 1
+-                #include "../tests/sysquotas.c"
+-                ''',
+-                                cflags=conf.env['WERROR_CFLAGS'],
+-                                define='HAVE_QUOTACTL_4B',
+-                                msg='for QUOTACTL_4B:  int quotactl(const char *path, int cmd, int id, char *addr)',
+-                                execute=True,
+-                                addmain=False)
++            conf.DEFINE('HAVE_QUOTACTL_4A', '0')
++            conf.DEFINE('HAVE_QUOTACTL_4B', '1')
+ 
+         if conf.CONFIG_SET('HAVE_QUOTACTL_LINUX') or \
+            conf.CONFIG_SET('HAVE_QUOTACTL_4A') or \
+diff --git a/third_party/heimdal_build/asn1_compile_wrapper.sh b/third_party/heimdal_build/asn1_compile_wrapper.sh
+index c449bf80657..00753030e1b 100755
+--- a/third_party/heimdal_build/asn1_compile_wrapper.sh
++++ b/third_party/heimdal_build/asn1_compile_wrapper.sh
+@@ -8,6 +8,7 @@ BUILDDIR=$1
+ DESTDIR=$2
+ 
+ CMD=$3
++CMD="/usr/local/bin/asn1_compile"
+ FILE=$4
+ NAME=$5
+ shift 5
+diff --git a/third_party/heimdal_build/et_compile_wrapper.sh b/third_party/heimdal_build/et_compile_wrapper.sh
+index 939b434767c..e3950838038 100755
+--- a/third_party/heimdal_build/et_compile_wrapper.sh
++++ b/third_party/heimdal_build/et_compile_wrapper.sh
+@@ -6,6 +6,7 @@ SELFDIR=`dirname "${SELF}"`
+ 
+ DESTDIR="$1"
+ CMD="$2"
++CMD="/usr/local/bin/compile_et"
+ FILE="$3"
+ SOURCE="$4"
+ shift 4
+diff --git a/third_party/heimdal_build/wscript_build b/third_party/heimdal_build/wscript_build
+index 8aea52b55f5..5fac3f91b21 100644
+--- a/third_party/heimdal_build/wscript_build
++++ b/third_party/heimdal_build/wscript_build
+@@ -1107,7 +1107,7 @@ if not bld.CONFIG_SET('USING_SYSTEM_ASN1_COMPILE'):
+              'HEIMDAL_ASN1_GEN_HOSTCC',
+         install=False
+     )
+-    bld.env['ASN1_COMPILE'] = os.path.join(bld.bldnode.parent.abspath(), 'asn1_compile')
++    bld.env['ASN1_COMPILE'] = "/usr/local/bin/asn1_compile"
+ 
+ 
+ if not bld.CONFIG_SET('USING_SYSTEM_COMPILE_ET'):
