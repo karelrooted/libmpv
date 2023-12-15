@@ -300,6 +300,7 @@ private class BaseBuild {
 
     func environment(platform: PlatformType, arch: ArchType) -> [String: String] {
         let buildURL = scratch(platform: platform, arch: arch)
+        let pkgConfigPathDefault = Utility.shell("pkg-config --variable pc_path pkg-config", isOutput: true)! + ":"
         var environ = [
             "LC_CTYPE": "C",
             "CC": ccFlags(platform: platform, arch: arch),
@@ -307,11 +308,11 @@ private class BaseBuild {
             "CPPFLAGS": cFlags(platform: platform, arch: arch),
             "CXXFLAGS": cFlags(platform: platform, arch: arch),
             "LDFLAGS": ldFlags(platform: platform, arch: arch),
-            "PKG_CONFIG_PATH": pkgConfigPath(platform: platform, arch: arch),
+            "PKG_CONFIG_LIBDIR": pkgConfigPath(platform: platform, arch: arch) + pkgConfigPathDefault,
             "CMAKE_OSX_ARCHITECTURES": arch.rawValue,
             "PATH": "/usr/local/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         ]
-        environ["PKG_CONFIG_PATH"] = environ["PKG_CONFIG_PATH"]! + getVulkanPkgconfig(buildURL: buildURL, platform: platform, arch: arch)
+        environ["PKG_CONFIG_LIBDIR"] = getVulkanPkgconfig(buildURL: buildURL, platform: platform, arch: arch) + environ["PKG_CONFIG_LIBDIR"]! 
         return environ
     }
 
@@ -320,8 +321,7 @@ private class BaseBuild {
     }
 
     func cFlags(platform: PlatformType, arch: ArchType) -> String {
-        //TODO remove temp debug flag -g
-        var cflags = "-g -arch " + arch.rawValue + " " + platform.deploymentTarget(arch)
+        var cflags = "-arch " + arch.rawValue + " " + platform.deploymentTarget(arch)
         if platform == .macos || platform == .maccatalyst {
             cflags += " -fno-common"
         }
@@ -1482,16 +1482,8 @@ private class BuildLibPlacebo: BaseBuild {
             [
                 "-Dtests=false",
                 "-Ddemos=false",
-                // "-Dlcms=disabled",
-                // "-Dshaderc=disabled",
-                // "-Dvulkan=disabled"
             ]
-        if platform != .macos {
-            // argus.append("-Dshaderc=disabled")
-            // argus.append("-Dlcms=disabled")
-            // argus.append("-Dvulkan=disabled")
-        }
-        if platform == .tvos {
+        if platform != .ios {
             argus.append("-Dlibdovi=disabled")
         }
         return argus
@@ -1501,12 +1493,14 @@ private class BuildLibPlacebo: BaseBuild {
 private class BuildMoltenVK: BaseBuild {
     init() {
         super.init(library: .MoltenVK)
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/MoltenVK/MoltenVK.patch"], currentDirectoryURL: directoryURL)
     }
 
     override func buildALL() throws {
         try Utility.launch(path: (directoryURL + "fetchDependencies").path, arguments: ["--all"], currentDirectoryURL: directoryURL)
         try Utility.launch(path: "/usr/bin/make", arguments: [], currentDirectoryURL: directoryURL)
         try? FileManager.default.copyItem(at: directoryURL + "Package/Release/MoltenVK/MoltenVK.xcframework", to: URL.currentDirectory + "../Framework/MoltenVK.xcframework")
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["stash"], currentDirectoryURL: directoryURL)
     }
 }
 
@@ -1529,6 +1523,7 @@ private class BuildMPV: BaseBuild {
     init(disableStaticLinkMoltenVkOnMac: Bool) {
         isDisableStaticLinkMoltenVkOnMac = disableStaticLinkMoltenVkOnMac
         super.init(library: .mpv)
+        let _ = try? Utility.launch(path: "/usr/bin/git", arguments: ["apply", "\(directoryURL.path)/../../Sources/MPVBuild/patch/mpv/molten-vk-context.patch"], currentDirectoryURL: directoryURL)
     }
 
     override func getVulkanPkgconfig(buildURL: URL, platform: PlatformType, arch: ArchType) -> String {
