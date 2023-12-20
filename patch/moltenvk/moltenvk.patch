@@ -1,0 +1,7 @@
+diff --git a/ExternalRevisions/glslang_repo_revision b/ExternalRevisions/glslang_repo_revision
+index cd54f4f3..49877de1 100644
+--- a/ExternalRevisions/glslang_repo_revision
++++ b/ExternalRevisions/glslang_repo_revision
+@@ -1 +1 @@
+-be564292f00c5bf0d7251c11f1c9618eb1117762
++abb79089a89a956ffc39b7c333224d8510305336

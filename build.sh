@@ -9,6 +9,7 @@ Help()
    echo "p     : Optional, platforms(macOS iOS tvOS iSimulator tvSimulator). Default: all"
    echo "a     : Optional, archs(x86_64 arm64). Default: all, please note iOS and tvOS will ignore this and always be arm64"
    echo "l     : Optional, libraries(openssl libpng freetype fribidi harfbuzz libass readline gmp nettle gnutls smbclient moltenvk shaderc littlecms libplacebo libdav1d libbluray ffmpeg uchardet luajit mpv)."
+   echo "g     : Optional, enable gpl, default: false"
    echo "d     : Optional, enable debug, default: false"
    echo "h     : Optional, Print this Help."
    echo
@@ -37,6 +38,7 @@ export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:$PATH"
 export SCRATCH
 export ARCH
 export DEBUG_SWITCH
+export GPL_SWITCH
 
 # add maccatalyst
 PLATFORMS="macos ios tvos isimulator tvsimulator"
@@ -46,7 +48,7 @@ LIBRARIES="openssl libpng freetype fribidi harfbuzz libass moltenvk shaderc litt
 #LIBRARIES="openssl srt libpng freetype brotli fribidi harfbuzz libass readline gmp nettle gnutls smbclient shaderc littlecms libdovi libplacebo libdav1d libbluray ffmpeg uchardet luajit mpv"
 #LIBRARIES="readline gmp nettle gnutls smbclient"
 
-while getopts ":hp:a:l:d" OPTION; do
+while getopts ":hp:a:l:gd" OPTION; do
     case $OPTION in
     h)
         Help
@@ -56,10 +58,13 @@ while getopts ":hp:a:l:d" OPTION; do
         PLATFORMS=$(echo "$OPTARG" | awk '{print tolower($0)}')
         ;;
     a)
-        ARCHS=$(echo "$OPTARG" | awk '{print tolower($0)}')
+        ARCHS_FILTERS=$(echo "$OPTARG" | awk '{print tolower($0)}')
         ;;
     l)
         LIBRARIES=$(echo "$OPTARG" | awk '{print tolower($0)}')
+        ;;
+    g)
+        GPL_SWITCH=true
         ;;
     d)
         DEBUG_SWITCH=true
@@ -87,6 +92,7 @@ fi
 brew list pkg-config || brew install pkg-config
 brew list automake || brew install automake
 brew list meson || brew install meson
+brew list ninja || brew install ninja
 brew list cmake || brew install cmake
 brew list nasm || brew install nasm
 brew list sdl2 || brew install sdl2
@@ -99,8 +105,10 @@ for PLATFORM in $PLATFORMS; do
     #rm -rf build/scratch-$PLATFORM
     if [[ "$PLATFORM" = "macos" ]]; then
         MIN_VERSION="10.15"
-        if [[ -z $ARCHS ]]; then
+        if [[ -z $ARCHS_FILTERS ]]; then
             ARCHS="x86_64 arm64"
+        else
+            ARCHS=$ARCHS_FILTERS
         fi 
         SDK_VERSION=$(xcrun -sdk macosx --show-sdk-version)
         PLATFORM_NAME="MacOS"
@@ -127,9 +135,11 @@ for PLATFORM in $PLATFORMS; do
     #DEPLOYMENT_TARGET_LDFLAG="-Wl,-tvos_version_min,$MIN_VERSION"
     elif [[ "$PLATFORM" = "isimulator" ]]; then
         MIN_VERSION="13.0"
-        if [[ -z $ARCHS ]]; then
+        if [[ -z $ARCHS_FILTERS ]]; then
             ARCHS="x86_64 arm64"
-        fi
+        else
+            ARCHS=$ARCHS_FILTERS
+        fi 
         SDK_VERSION=$(xcrun -sdk iphonesimulator --show-sdk-version)
         PLATFORM_NAME="iPhoneSimulator"
         SDKPATH="$(xcrun -sdk iphonesimulator --show-sdk-path)"
@@ -137,9 +147,11 @@ for PLATFORM in $PLATFORMS; do
         #DEPLOYMENT_TARGET_LDFLAG="-Wl,-ios_simulator_version_min,$MIN_VERSION"
     elif [[ "$PLATFORM" = "tvsimulator" ]]; then
         MIN_VERSION="13.0"
-        if [[ -z $ARCHS ]]; then
+        if [[ -z $ARCHS_FILTERS ]]; then
             ARCHS="x86_64 arm64"
-        fi
+        else
+            ARCHS=$ARCHS_FILTERS
+        fi 
         SDK_VERSION=$(xcrun -sdk appletvsimulator --show-sdk-version)
         PLATFORM_NAME="AppleTVSimulator"
         SDKPATH="$(xcrun -sdk appletvsimulator --show-sdk-path)"
@@ -148,9 +160,11 @@ for PLATFORM in $PLATFORMS; do
         #DEPLOYMENT_TARGET_LDFLAG="-Wl,-tvos_simulator_version_min,$MIN_VERSION"
     elif [[ "$PLATFORM" = "maccatalyst" ]]; then
         MIN_VERSION="13.0"
-        if [[ -z $ARCHS ]]; then
+        if [[ -z $ARCHS_FILTERS ]]; then
             ARCHS="x86_64 arm64"
-        fi
+        else
+            ARCHS=$ARCHS_FILTERS
+        fi 
         SDK_VERSION=$(xcrun -sdk macosx --show-sdk-version)
         PLATFORM_NAME="AppleTVSimulator"
         SDKPATH="$(xcrun -sdk macosx --show-sdk-path)"

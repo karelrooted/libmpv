@@ -7,6 +7,11 @@ opts="-Dlibmpv=true \
                 -Djpeg=disabled \
                 -Drubberband=disabled \
                 -Djavascript=disabled"
+if [[ ! -z $GPL_SWITCH ]]; then
+    opts="$opts -Dgpl=true"
+else
+    opts="$opts -Dgpl=false"
+fi
 git apply $ROOT/patch/mpv/molten-vk-context.patch || true
 if [[ "$PLATFORM" == "maccatalyst" || ("$PLATFORM" == "macos" && $ARCH = "arm64") ]]; then
     opts="$opts -Dlua=disabled"

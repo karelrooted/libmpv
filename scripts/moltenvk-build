@@ -1,12 +1,15 @@
 #!/bin/sh -xe
 
-python3 -m pip install distutils || true
 cd $SRC/MoltenVK
-git apply $ROOT/patch/MoltenVK/MoltenVK.patch
+git apply $ROOT/patch/moltenvk/moltenvk.patch || true
 ./fetchDependencies --all
-make
-cp ./Package/Release/MoltenVK/MoltenVK.xcframework $ROOT/Framework/MoltenVK.xcframework
+if [[ ! -z $DEBUG_SWITCH ]]; then
+    make all-debug
+else
+    make all
+fi
 git stash
+cp ./Package/Release/MoltenVK/MoltenVK.xcframework $ROOT/Framework/MoltenVK.xcframework
 
 PLATFORMS="macos ios tvos isimulator tvsimulator"
 for PLATFORM in $PLATFORMS; do
