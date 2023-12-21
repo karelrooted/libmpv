@@ -32,7 +32,7 @@ export SDKPATH
 export BUILDDIR
 export LC_CTYPE="C"
 #export LC_ALL="C"
-export CC="/usr/bin/clang "
+export CC="/usr/bin/clang"
 #export PATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/:/usr/local/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:$PATH"
 export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:$PATH"
 export SCRATCH
